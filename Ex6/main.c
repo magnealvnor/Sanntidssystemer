@@ -4,9 +4,9 @@
 #include <sys/mman.h>
 #include <native/task.h>
 #include <native/timer.h>
-#include  <rtdk.h>
+#include <rtdk.h>
 
-#define TESTE_MODE  true
+#define TEST_MODE false
 
 #if TEST_MODE
 /****************************************** TEST PROG******************************************/
@@ -64,16 +64,18 @@ int main(int argc, char* argv[]){
 #include <unistd.h> //usleep
 #include <stdlib.h> //malloc, free
 #include <pthread.h>
+#include <sched.h>
 #include "io.h"
 
 #define N_RT_THREADS    3
 #define N_PTHREADS      10
 #define RT_THREADS_PRI  50
-#define SLEEP_PERIOD    100000
+#define SLEEP_PERIOD    9000
 #define SUCCESS         0
 
 static void *RT_function(void *argpointer);
 static void *pthread_function(void *argpointer);
+int set_cpu(int cpu_number);
 
 int main(void){
     
@@ -92,8 +94,9 @@ int main(void){
 
     /* Initialize Real-Time threads */
     int* chan;
+	int i;
     RT_TASK rt_threads[N_RT_THREADS];
-    for(int i=0; i<N_RT_THREADS; i++){
+    for(i=0; i<N_RT_THREADS; i++){
         /* Give the new thread the channel to respond to by argument */
         chan = malloc(sizeof(int));
         *chan = i+1;
@@ -122,10 +125,11 @@ int main(void){
 
     /* Initialize disturbance threads */
     pthread_t pthreads[N_PTHREADS];
-    for(int i=0; i<N_PTHREADS; i++){
+
+    for(i=0; i<N_PTHREADS; i++){
 
         /* Create new thread */
-        if(pthread_create(&p_threads[i], NULL, pthread_function, NULL) != SUCCESS){
+        if(pthread_create(&pthreads[i], NULL, pthread_function, NULL) != SUCCESS){
             printf("Disturbance thread %i failed to be created \n", i);
             exit(1);
         }
@@ -135,10 +139,11 @@ int main(void){
     }
 
     /* Collect threads before exiting */
-    for(int j = 0; j < N_PTHREADS; j++){
+	int j;
+    for(j = 0; j < N_PTHREADS; j++){
         pthread_join(pthreads[j], NULL);
-    }
-    
+    }   
+
     return 0;
 }
 
@@ -160,7 +165,6 @@ static void *RT_function(void *argpointer){
     }   
 }
 
-
 static void *pthread_function(void *argpointer){
     set_cpu(1);
     int retardation_lvl;
@@ -172,6 +176,17 @@ static void *pthread_function(void *argpointer){
             retardation_lvl = 0;
         }
     }
+}
+
+int set_cpu(int cpu_number)
+{
+	/* setting cpu set to the selected cpu */
+	cpu_set_t cpu;
+	CPU_ZERO(&cpu);
+	CPU_SET(cpu_number, &cpu);
+
+	/* set cpu set to current thread and return */
+	return pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t),&cpu);
 }
 
 #endif
