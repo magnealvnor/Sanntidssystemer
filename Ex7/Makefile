@@ -1,39 +1,37 @@
-program_EXECUTABLE := ./../sa
-
-mkfile_path := $(abspath $(lastword $(MAKEFILE_LIST)))
-current_dir := $(notdir $(patsubst %/,%,$(dir $(mkfile_path))))
-
-program_C_SRCS := $(wildcard *.c)
-program_OBJS := ${program_C_SRCS:.c=.o}
+# program executable name
+TARGET = assA
 
 XENO_DESTDIR:=
 XENO_CONFIG:=$(XENO_DESTDIR)/usr/bin/xeno-config
 XENO_CFLAGS:=$(shell DESTDIR=$(XENO_DESTDIR) $(XENO_CONFIG) --skin native --cflags)
 XENO_LIBS:=$(shell DESTDIR=$(XENO_DESTDIR) $(XENO_CONFIG) --skin native --ldflags)
 
-program_INCLUDE_DIRS := 
-program_LIBRARY_DIRS :=
-program_LIBRARIES :=  m $(XENO_LIBS)
+# compiler flags
+CFLAGS = -g -Wall -D_GNU_SOURCE $(XENO_CFLAGS)
+#-I/usr/realtime/include 
 
-LDFLAGS += -g
-CFLAGS += -Wall -g $(XENO_CFLAGS)
-CPPFLAGS += $(foreach includedir,$(program_INCLUDE_DIRS),-I$(includedir))
-LDFLAGS += $(foreach librarydir,$(program_LIBRARY_DIRS),-L$(librarydir))
-LDFLAGS += $(foreach library,$(program_LIBRARIES),-l$(library))
+# linker flags
+LDFLAGS = -g $(XENO_LIBS) -lcomedi -lm
 
+# list of sources
+SOURCES = $(shell find -name "*.c")
 
-.PHONY: all clean distclean
-all: $(program_EXECUTABLE)
+# default rule, to compile everything
+all: $(TARGET)
+	
 
-$(program_OBJS):%.o:%.cpp
-	$(CXX) $(CFLAGS) -c $< -o $@
+# define object files
+OBJECTS = $(SOURCES:.c=.o)
 
-$(program_EXECUTABLE): $(program_OBJS)
-	$(CXX) $(CFLAGS) $(CPPFLAGS) $(TARGET_ARCH) $(program_OBJS) -o $(program_EXECUTABLE) $(LDFLAGS)
+# link programs
+$(TARGET): $(OBJECTS)
+	gcc  $^ $(LDFLAGS) -o $@
 
+# compile
+%.o : %.c
+	gcc $(CFLAGS) -c -o $@ $<
+
+# cleaning
 clean:
-	@- $(RM) $(program_EXECUTABLE)
-	@- $(RM) $(program_OBJS)
-
-distclean: clean
+	rm -f $(TARGET) $(OBJECTS)
 
