@@ -22,23 +22,25 @@ typedef struct fifo_t fifo_t;
 
 int init_fifo(fifo_t * fifo);
 
-//adds a string to the fifo
+/* Adds a string to the fifo */
 int fifo_add_string(fifo_t *fifo,char array[WIDTH]);
-//copys the next string into "string" and removes it from the fifo
+
+/* Copys the next string into "string" and removes it from the fifo */
 void fifo_rem_string(fifo_t *fifo, char * string);
 
-//adds a id to the blocked list
+/* Adds a id to the blocked list */
 int fifo_add_blocked_id(fifo_t *fifo, int id);
-//returns the next id from the blocked list
+
+/* Returns the next id from the blocked list */
 int fifo_rem_blocked_id( fifo_t* fifo);
 
-//returns the status of the fifo, 0 = empty, 1 = non-empty
+/* Returns the status of the fifo, 0 = empty, 1 = non-empty */
 int fifo_status(fifo_t * fifo);
 
-//prints the fifo list
+/* prints the fifo list */
 void fifo_print(fifo_t *fifo);
 
-//prints the blocked id list
+/* Prints the blocked id list */
 void fifo_print_blocked_ids(fifo_t *fifo);
 
 

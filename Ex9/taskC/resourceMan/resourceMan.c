@@ -16,19 +16,15 @@
 #define DIR_UP			1
 #define DIR_NONE		0
 #define DIR_DOWN		(-1)
-#define BUFFER_SIZE		1
 
 void error(char *s){
 	perror(s);
 	exit(EXIT_FAILURE);
 }
 
-int32_t counter_var = 0;
-int32_t counter_dir = 0;
+fifo_t Queues;
 
-pthread_mutex_t lock;
-pthread_t tid;
-char buffer[BUFFER_SIZE];
+char buffer[WIDTH];
 
 static void* counter(void *arg);
 int io_read (resmgr_context_t *ctp, io_read_t *msg, RESMGR_OCB_T *ocb);
@@ -43,12 +39,6 @@ int main(int argc, char *argv[]) {
 	iofunc_attr_t io_attr;
 
 	printf("Start resource manager\n");
-
-	/* Init mutex for counter variable */
-	if (pthread_mutex_init(&lock, NULL) != 0){
-	        printf("\n mutex init failed\n");
-	        return 1;
-	}
 
 	/* Create dispatch. */
 	if (!(dpp = dispatch_create()))
@@ -82,9 +72,8 @@ int main(int argc, char *argv[]) {
 					< 0)
 		error("resmgr_attach()");
 
-	/* Create counter thread */
-	if (pthread_create(&tid, NULL, &counter, NULL) != 0)
-		printf("can't create counter thread\n");
+	/* Init queue for holding blocked threads aswell as messages */
+	init_fifo(&Queues);
 
 	/* Wait forever, handling messages. */
 	ctp = dispatch_context_alloc(dpp);
@@ -93,7 +82,6 @@ int main(int argc, char *argv[]) {
 			error("dispatch_block()");
 		dispatch_handler(ctp);
 	}
-	pthread_mutex_destroy(&lock);
 
 	exit(EXIT_SUCCESS);
 }
@@ -118,28 +106,14 @@ int io_write (resmgr_context_t *ctp, io_write_t *msg, RESMGR_OCB_T *ocb){
     buf [msg->i.nbytes] = '\0'; /* just in case the text is not NULL terminated */
     printf ("Received %d bytes = '%s'\n", msg -> i.nbytes, buf);
 
-    /* Set the dir var for counter thread according to the command */
-    if(!strncmp(buf, "up", 2)){
-    	/* Count upwards */
-    	pthread_mutex_lock(&lock);
-    	counter_dir = DIR_UP;
-    	pthread_mutex_unlock(&lock);
-
-    }else if(!strncmp(buf,"down", 4)){
-    	/* Count downwards */
-    	pthread_mutex_lock(&lock);
-    	counter_dir = DIR_DOWN;
-    	pthread_mutex_unlock(&lock);
-
-    }else if(!strncmp(buf, "stop", 4)){
-    	/* Stop counting */
-    	pthread_mutex_lock(&lock);
-    	counter_dir = DIR_NONE;
-    	pthread_mutex_unlock(&lock);
-
+    /* Add to queue, if there is a waiting client, start it */
+    pthread_mutex_lock(&Queues.resource_mutex);
+    if(Queues.blockedHead != Queues.blockedTail){
+        MsgReply(fifo_rem_blocked_id(&Queues), 0, buf, WIDTH);
     }else{
-    	// do nothing
+    	fifo_add_string(&Queues ,buf);
     }
+    pthread_mutex_unlock(&Queues.resource_mutex);
 
     free(buf);
 
@@ -149,20 +123,34 @@ int io_write (resmgr_context_t *ctp, io_write_t *msg, RESMGR_OCB_T *ocb){
 int io_read (resmgr_context_t *ctp, io_read_t *msg, RESMGR_OCB_T *ocb){
     int nbytes;
     int buffer_read;
+    int nonblock;
 
-    /* Check if the buffer has been reads */
+    /* Check if the buffer has been read */
     if(ocb->offset){
     	nbytes = 0;
     	_IO_SET_READ_NBYTES (ctp, 0);
     	buffer_read = 0;
     }else{
-    	nbytes = BUFFER_SIZE;
+    	nbytes = WIDTH;
 
-    	pthread_mutex_lock(&lock);
-		sprintf(buffer, "%i\n", counter_var);
-		pthread_mutex_unlock(&lock);
+    	/* Check if queue is empty */
+    	pthread_mutex_lock(&Queues.resource_mutex);
+    	if(Queues.fifoTail == Queues.fifoHead){
 
-		printf("buffer is: %s \n", buffer);
+    		/* Check if call should be blocking or nonblocking */
+    		iofunc_read_verify (ctp, msg, ocb, &nonblock);
+
+    		if(!nonblock){
+    			fifo_add_blocked_id(&Queues, ctp->rcvid);
+    			return (_RESMGR_NOREPLY);
+    		}else{
+    			return EAGAIN;
+    		}
+    	}else{
+    		fifo_rem_string(&Queues, buffer);
+    		printf("%s\n", buffer);
+    	}
+    	pthread_mutex_unlock(&Queues.resource_mutex);
 
 		/* Set up the return data IOV */
 		SETIOV (ctp->iov, buffer, nbytes);
@@ -174,17 +162,6 @@ int io_read (resmgr_context_t *ctp, io_read_t *msg, RESMGR_OCB_T *ocb){
 		ocb->offset = 1;
 		buffer_read = 1;
     }
-    return (_RESMGR_NPARTS (buffer_read));
+    return (_RESMGR_NPARTS(buffer_read));
 }
 
-static void* counter(void *arg){
-	printf("Counter thread started!\n");
-
-	while(1){
-		pthread_mutex_lock(&lock);
-		counter_var += counter_dir * COUNTER_STEP;
-		pthread_mutex_unlock(&lock);
-		delay(COUNTER_PERIOD);
-	}
-	return NULL;
-}

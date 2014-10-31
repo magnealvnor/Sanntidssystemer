@@ -32,7 +32,7 @@ int fifo_add_string(fifo_t *fifo,char array[WIDTH])
 	{
 		memcpy(fifo->fifo[fifo->fifoTail], array,WIDTH);
 		fifo->status[fifo->fifoTail] = 1;
-		//printf("fifo_add_string: %s, Head: %i\n", array, fifo->fifoHead);
+		printf("fifo_add_string: %s, Head: %i\n", array, fifo->fifoHead);
 		if (fifo->fifoTail >= LENGTH-1)
 		{
 			fifo->fifoTail = 0;
@@ -41,7 +41,7 @@ int fifo_add_string(fifo_t *fifo,char array[WIDTH])
 		{
 			fifo->fifoTail++;
 		}
-		//printf("fifoTail = %i \n", fifo->fifoTail);
+		printf("fifoTail = %i \n", fifo->fifoTail);
 
 		return TRUE;
 	}
