@@ -74,10 +74,10 @@ int clock_nanosleep(struct timespec *next)
 	return 0;
 }
 
-void timespec_add_us(struct timespec *t, long ns)
+void timespec_add_us(struct timespec *t, long us)
 {
-	// add nanoseconds to timespecs nanosecond counter
-	t->tv_nsec += ns;
+	// add microseconds to timespecs nanosecond counter
+	t->tv_nsec += us*1000;
 
 	// if wrapping nanosecond counter, increment second counter
 	if (t->tv_nsec > 1000000000)

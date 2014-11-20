@@ -6,12 +6,13 @@
 #include "shared.h"
 
 /* PID Controller variables */
-#define PID_KP			13.32
-#define PID_KI			1776.0
-#define PID_KD			0.025
+#define PID_KP			4.5
+#define PID_KI			800.0
+#define PID_KD			0.7
 #define PID_REFERENCE	1.0
-#define PID_PERIOD		1000
-#define RUNTIME			500000
+#define PID_INIT_ERROR	1.0
+#define PID_PERIOD		0.005
+#define RUNTIME			0.5
 
 typedef struct{
 	float Kp;
@@ -19,7 +20,7 @@ typedef struct{
 	float Kd;
 	float reference;
 	float previous_error;
-	int period;
+	float period;
 	float integral;
 }PID_ctrl_t;
 

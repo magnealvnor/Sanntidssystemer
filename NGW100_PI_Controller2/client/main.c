@@ -7,14 +7,7 @@
 
 int main(int argc, char** argv){
 
-	/* Create a barrier to delay simulation untill all system parts are ready */
-    /*
-    if (pthread_barrier_init(&shared_start, NULL, N_THREADS+1) == SUCCESS){
-        printf("ERROR: Failed to create barrier.\n");
-        exit(1);
-    }
-    */
-
+#if SIGNAL_HANDLING
 	/* Init semaphore for signaling between socket and signal thread */
   	if(sem_init(&shared_signal,0,SEM_SIGNAL_INIT_VAL) == SUCCESS){
 		printf("Signal Semaphore created successfully!\n");
@@ -22,6 +15,7 @@ int main(int argc, char** argv){
 		printf("Failed to create signal semaphore\n");
 		exit(1);
 	}
+#endif /* SIGNAL_HANDLING */
 
 	/* Init semaphore for signaling between socket and pid thread */
   	if(sem_init(&shared_pid,0,SEM_PID_INIT_VAL) == SUCCESS){
@@ -48,7 +42,7 @@ int main(int argc, char** argv){
 		printf("Socket inited.\n");
 	}
 
-	/* Init Socket thread */
+	/* Init Socket listener thread */
 	pthread_t handle_socket;
 	if(pthread_create(&handle_socket, NULL, thread_socket, (void*) &y) == SUCCESS){
 		printf("Socket Thread created successfully!\n");
@@ -57,7 +51,9 @@ int main(int argc, char** argv){
 		exit(1);
 	}
 
-	/* Init Signal thread */
+#if SIGNAL_HANDLING
+
+	/* Init Signal handling thread */
 	pthread_t handle_signal;
 	if(pthread_create(&handle_signal, NULL, thread_signal, NULL) == SUCCESS){
 		printf("Signal Thread created successfully!\n");
@@ -65,8 +61,10 @@ int main(int argc, char** argv){
 		printf("Failed to create signal thread\n");
 		exit(1);
 	}
+	
+#endif /* SIGNAL_HANDLING */
 
-	/* Init PID thread */
+	/* Init PID controller thread */
 	pthread_t handle_pid;
 	if(pthread_create(&handle_pid, NULL, thread_pid, (void*) &y) == SUCCESS){
 		printf("PID Thread created successfully!\n");
@@ -74,9 +72,6 @@ int main(int argc, char** argv){
 		printf("Failed to create PID thread\n");
 		exit(1);
 	}
-
-	/* Wait for all threads to be initialized... */
-	//pthread_barrier_wait(&shared_start);
 
 	/* Start the system simulation */
 	if(udp_send(&shared_server_con.socket, "START", sizeof("START")) == FAIL){
